@@ -1,0 +1,11 @@
+Primero se hizo un EDA (Analisis exploratorio de datos), para ver la variablididad de los datos, y cómo se relacionan entre ellos; además de arreglar el tipo de datos de varias columnas para poder analizarlo más facilmente, así como una ligera variación en como se expresan los datos para generalizar y ver su distribución, y por último unimos todos los datos que teníamos disponibles para un usuario, para así poder aprovechar la mayor cantidad de información, para introducirla en nuestro modelo y generar uno con más precisión gracias a las caracteristicas obtenidas
+
+Para crear el modelo transformamos los datos categoricos a tipo OHE, separamos los datos para entrenar nuestro modelo, y probarlo, por último buscamos los mejores parámetros para el modelo, y lo entrenamos con ello, con lo cual obtenemos un resultado muy satisfactorio sobre la exactitud de nuestro modelo
+
+¿Qué pasos del plan se realizaron y qué pasos se omitieron (explica por qué)? Realizamos todos los pasos que se tenían planeados
+
+¿Qué dificultades encontraste y cómo lograste resolverlas? El tipo de datos era incorrecto para crear un modelo, por lo que lo modificamos
+
+¿Cuáles fueron algunos de los pasos clave para resolver la tarea? Asegurarnos de que todos los datos fueran óptimos para la creación de nuestro modelo
+
+¿Cuál es tu modelo final y qué nivel de calidad tiene? Un modelo de Random Forest Classifier, con n_estimators=100 y max_depth=20. Con AUC-ROC: 0.8703195614248516
