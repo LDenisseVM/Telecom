@@ -1,0 +1,48 @@
+import pandas as pd
+import numpy as np
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.metrics import roc_auc_score
+from scipy import stats
+
+data=pd.read_csv('data.csv')
+
+data
+
+data.info()
+
+data['BeginDate']=pd.to_datetime(data['BeginDate'], format='%Y-%m-%d')
+data['year'] = data['BeginDate'].dt.year
+data['month'] = data['BeginDate'].dt.month
+
+data.info()
+
+# Vamos a eliminar la columna de customerID, pues no influye en si cancelaron o no su contrato 
+
+data= data.drop('customerID', axis=1)
+
+# Y convertiremos las caracteristicas númericas en OHE, para que el modelo lo pueda procesar facilmente 
+
+df_cat = data.select_dtypes(include=['object'])
+#df_cat= df_cat.drop('EndDate', axis=1)
+df_num = data.select_dtypes(exclude=['object'])
+
+df_cat_dummy = pd.get_dummies(df_cat, drop_first=True)
+data_1 = pd.concat([df_num, df_cat_dummy], axis=1)
+
+data_1.info()
+
+data_1
+
+features= data_1.drop(['EndDate_Yes', 'BeginDate'], axis=1)
+target= data['EndDate']
+
+features_train, features_test, target_train, target_test = train_test_split(features, target, test_size=0.2, random_state=42)
+
+model_rfc= RandomForestClassifier(random_state=12345, n_estimators=100, max_depth=20)
+model_rfc.fit(features_train, target_train)
+model_rfc.score(features_test, target_test)
+
+y_pred_proba = model_rfc.predict_proba(features_test)[:,1]
+auc = roc_auc_score(target_test, y_pred_proba)
+print("AUC-ROC:", auc)
