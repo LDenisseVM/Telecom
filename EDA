@@ -1,0 +1,291 @@
+# Importamos las librerias que usaremos 
+
+import pandas as pd
+import numpy as np 
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Leemos los datos 
+
+contract= pd.read_csv('/datasets/final_provider/contract.csv')
+personal= pd.read_csv('/datasets/final_provider/personal.csv')
+internet= pd.read_csv('/datasets/final_provider/internet.csv')
+phone= pd.read_csv('/datasets/final_provider/phone.csv')
+
+
+# Analizamos los datos y echamos un vistazo rapido a estos 
+
+print(contract.info())
+contract.head()
+
+contract.nunique()
+
+contract['EndDate'].value_counts()
+
+# Vemos que los que cancelaron fueron muy específicos en sus fechas, cancelaron en Octubre, Noviembre y Diciembre del 2019, y en Enero de 2020
+
+# Vemos que hay algunas columnas con el tipo de datos incorrectos, asi que los arreglaremos 
+
+contract['TotalCharges'] = pd.to_numeric(contract['TotalCharges'], errors='coerce')
+
+contract.info()
+
+# Vemos que hubo algunas filas que estaban vacias en la columna de "TotalCharges", y ahora aparecen como isna, los eliminaremos para evitar problemas
+
+contract= contract.dropna()
+contract
+
+# Y también eliminaremos estos clientes de las otras datas para que todo esté parejo 
+
+personal= personal[personal['customerID'].isin(contract['customerID'])]
+
+internet= internet[internet['customerID'].isin(contract['customerID'])]
+
+phone= phone[phone['customerID'].isin(contract['customerID'])]
+
+print(personal.info())
+personal.head()
+
+personal.nunique()
+
+# Arreglamos 'BeginDate'
+
+contract['BeginDate']=pd.to_datetime(contract['BeginDate'], format='%Y-%m-%d')
+
+contract.info()
+
+# Con EndDate va a ser un poco más complicado, pues además de tener fechas, también tiene un No, si no ha sido cancelado el contrato, asi que crearemos otra data para analizar los que si han sido cancelados 
+
+# Pero primero uniremos todas las datas, para poder tener un panorama completo, y luego estudiarlas por separado 
+
+data= contract.merge(personal, on='customerID')
+data= data.merge(internet, on='customerID', how='outer')
+data= data.merge(phone, on='customerID', how='outer')
+data
+
+
+# Creamos la data de cancelados 
+
+cancelled= data.copy()
+
+cancelled['EndDate'] = cancelled['EndDate'].replace('No', np.nan)
+
+cancelled = cancelled.dropna()
+
+cancelled.info()
+
+cancelled.head()
+
+# Ya tenemos una tabla con puros datos de contratos cancelados, ahora vamos a rreglar el tipo de datos 
+
+cancelled['EndDate']=pd.to_datetime(cancelled['EndDate'], format='%Y-%m-%d ')
+
+cancelled.head()
+
+# Y crearemos otra data con la info de los contratos que continuan 
+
+continues= data.copy()
+
+continues = data[data['EndDate'] == 'No']
+
+continues.info()
+
+# Ya tenemos dos datas, una con la información de quienes ya cancelaron, y otra de quienes aún continuan con su contrato 
+
+# Ahora las analizaremos 
+
+data_1= data.copy()
+data_1.loc[data_1['EndDate'] != 'No', 'EndDate'] = 'Yes'
+data_1['SeniorCitizen']=data_1['SeniorCitizen'].replace({1: 'Yes', 0: 'No'})
+groups= data_1.groupby('EndDate').apply(lambda x: x[['PaperlessBilling', 'SeniorCitizen', 'Partner', 'Dependents', 'OnlineSecurity', 'OnlineBackup', 'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies', 'MultipleLines']].apply(pd.value_counts))
+groups
+
+
+data_1[['PaperlessBilling', 'SeniorCitizen', 'Partner', 'Dependents', 'OnlineSecurity', 'OnlineBackup', 'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies', 'MultipleLines']]= data_1[['PaperlessBilling', 'SeniorCitizen', 'Partner', 'Dependents', 'OnlineSecurity', 'OnlineBackup', 'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies', 'MultipleLines']].replace({'Yes': 1,'No' : 0})
+
+data_1[['PaperlessBilling', 'SeniorCitizen', 'Partner', 'Dependents', 'OnlineSecurity', 'OnlineBackup', 'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies', 'MultipleLines']]= data_1[['PaperlessBilling', 'SeniorCitizen', 'Partner', 'Dependents', 'OnlineSecurity', 'OnlineBackup', 'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies', 'MultipleLines']].fillna(0)
+data_1[['PaperlessBilling', 'SeniorCitizen', 'Partner', 'Dependents', 'OnlineSecurity', 'OnlineBackup', 'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies', 'MultipleLines']]= data_1[['PaperlessBilling', 'SeniorCitizen', 'Partner', 'Dependents', 'OnlineSecurity', 'OnlineBackup', 'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies', 'MultipleLines']].astype('int')
+
+data_1.info()
+
+# Gráficos de datos binarios sobre toda la tabla para saber la frecuencia
+
+columns = ['PaperlessBilling', 'SeniorCitizen', 'Partner', 'Dependents', 'OnlineSecurity', 'OnlineBackup', 'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies', 'MultipleLines']
+fig, axs = plt.subplots(nrows=3, ncols=4, figsize=(15, 10))
+
+for i, col in enumerate(columns):
+    row = i // 4
+    col_idx = i % 4
+    values, bins, patches = axs[row, col_idx].hist(data_1[col], bins=[0, 0.5, 1.5], edgecolor='black')
+    axs[row, col_idx].set_xlabel(col)
+    axs[row, col_idx].set_ylabel('Frecuencia')
+    axs[row, col_idx].set_title({col})
+    axs[row, col_idx].set_xticks([0.25, 1.25])
+    axs[row, col_idx].set_xticklabels(['No', 'Yes'])
+
+plt.tight_layout()
+plt.show()
+
+# Sobre los cancelados
+
+cancelled[['PaperlessBilling', 'Partner', 'Dependents', 'OnlineSecurity', 'OnlineBackup', 'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies', 'MultipleLines']]= cancelled[['PaperlessBilling', 'Partner', 'Dependents', 'OnlineSecurity', 'OnlineBackup', 'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies', 'MultipleLines']].replace({'Yes': 1,'No' : 0})
+
+fig, axs = plt.subplots(nrows=3, ncols=4, figsize=(15, 10))
+
+for i, col in enumerate(columns):
+    row = i // 4
+    col_idx = i % 4
+    values, bins, patches = axs[row, col_idx].hist(cancelled[col], bins=[0, 0.5, 1.5], edgecolor='black')
+    axs[row, col_idx].set_xlabel(col)
+    axs[row, col_idx].set_ylabel('Frecuencia')
+    axs[row, col_idx].set_title({col})
+    axs[row, col_idx].set_xticks([0.25, 1.25])
+    axs[row, col_idx].set_xticklabels(['No', 'Yes'])
+
+plt.tight_layout()
+plt.show()
+
+# Sobre los que continuan
+
+personal.info()
+
+continues[['PaperlessBilling', 'Partner', 'Dependents', 'OnlineSecurity', 'OnlineBackup', 'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies', 'MultipleLines']]= continues[['PaperlessBilling', 'Partner', 'Dependents', 'OnlineSecurity', 'OnlineBackup', 'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies', 'MultipleLines']].replace({'Yes': 1,'No' : 0})
+continues[['PaperlessBilling', 'Partner', 'Dependents', 'OnlineSecurity', 'OnlineBackup', 'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies', 'MultipleLines']]= continues[['PaperlessBilling', 'Partner', 'Dependents', 'OnlineSecurity', 'OnlineBackup', 'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies', 'MultipleLines']].fillna(0)
+
+continues.info()
+
+fig, axs = plt.subplots(nrows=5, ncols=2, figsize=(12, 15))
+
+for i, col in enumerate(columns[:10]):
+    row = i // 2
+    col_idx = i % 2
+    values, bins, patches = axs[row, col_idx].hist(continues[col], bins=[0, 0.5, 1.5], edgecolor='black')
+    axs[row, col_idx].set_xlabel(col)
+    axs[row, col_idx].set_ylabel('Frecuencia')
+    axs[row, col_idx].set_title(f'Binary Histogram de {col}')
+    axs[row, col_idx].set_xticks([0.25, 1.25])
+    axs[row, col_idx].set_xticklabels(['No', 'Yes'])
+
+
+ # Analizamos cuánto pagaban los que cancelaron vs los que continuan con sus contratos 
+
+fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(12, 6))
+
+cancelled.boxplot(column=['TotalCharges'], ax=axs[0])
+axs[0].set_title('Cancelled')
+
+continues.boxplot(column=['TotalCharges'], ax=axs[1])
+axs[1].set_title('Continues')
+
+plt.show()
+
+fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(12, 6))
+
+cancelled.boxplot(column=['MonthlyCharges'], ax=axs[0])
+axs[0].set_title('Cancelled')
+
+continues.boxplot(column=['MonthlyCharges'], ax=axs[1])
+axs[1].set_title('Continues')
+
+plt.show()
+
+# Crear  con mean de TotalCharges y MonthlyCharges
+pivot_table = data_1.pivot_table(index='EndDate', values=['TotalCharges', 'MonthlyCharges'], aggfunc=['mean', 'median'])
+pivot_table
+
+data_1.groupby('EndDate').apply(lambda x: x[['Type', 'PaymentMethod', 'gender', 'InternetService']].apply(pd.value_counts))
+
+data_1.info()
+
+data_1.head()
+
+columns= ['Type', 'PaymentMethod', 'gender', 'InternetService', ]
+
+def categorical_grafs(df):
+    fig, ax = plt.subplots(1, len(columns), figsize=(15, 5))
+    for i, column in enumerate(columns):
+        sns.countplot(x=column, data=df, ax=ax[i])
+        ax[i].set_title(column)
+        ax[i].set_xlabel(column, labelrotation=45)
+        ax[i].set_ylabel('Frecuencia')
+    plt.tight_layout()
+    plt.show()
+
+def categorical_grafs(df):
+    fig, ax = plt.subplots(1, len(columns), figsize=(20, 10))
+    for i, column in enumerate(columns):
+        sns.countplot(x=column, data=df, ax=ax[i])
+        ax[i].set_title(column, fontsize=15)
+        ax[i].set_xlabel(column, fontsize=15)
+        ax[i].set_ylabel('Frecuencia', fontsize=15)
+        ax[i].tick_params(axis='x', labelrotation=45, labelsize=15)
+        ax[i].tick_params(axis='y', labelsize=15)
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    plt.show()
+
+
+data_2= data_1.copy()
+data_2['InternetService']= data_2['InternetService'].fillna('No')
+
+continues_2= continues.copy()
+continues_2['InternetService']= continues_2['InternetService'].fillna('No')
+
+categorical_grafs(data_2)
+
+categorical_grafs(cancelled)
+
+categorical_grafs(continues_2)
+
+# Vemos diferencia significativa en algunas categorias, por ejemplo casi todos los que cancelaron pagaban mes con mes, y eso tiene sentido, considerando que los que cancelaron pagaban más mes con mes, que los que siguen, a pesar de que su cargo total era menor, es muy probable que solo se percataran del pago que hacían mes con mes, y eso influyera en su cancelación de contrato, a diferencia de los que siguen, no se nota una inclinación tan clara
+# El tipo de pago también difiere, la mayoría de los que cancelaron pagaban con chque electrónico, mientras que entre los clientes que siguen, no hay un tipo de pago dominante, todos los tipos de pago son utilizados en la misma frecuencia 
+# Vemos que el geenro de los coientes no tiene un gran impacto
+# Y que todos los que cancelaron sus contratos tenían Servicio de internet, mayormente fibra óptica, una posibilidad es que haya una falla con la fibra óptica
+# Y los que continuan sobresale DSL, sin embargo también hay varios que no tienen servicio dde internet contratado 
+
+# Por último veamos cómo se distribuian los clientes que teían contratado telefono E internet, entre los que cancelaron su contrato y los que siguen 
+
+print(internet.info())
+internet.head()
+
+print(phone.info())
+phone.head()
+
+data= phone.merge(internet, on='customerID', how= 'outer')
+data
+
+data.info()
+
+common= phone.merge(internet, on='customerID', how= 'inner')
+common
+
+cancelled_both= common[common['customerID'].isin(cancelled['customerID'])]
+
+continues_both= common[common['customerID'].isin(continues['customerID'])]
+
+phone_cancelled= phone[phone['customerID'].isin(cancelled['customerID'])]
+
+phone_continues= phone[phone['customerID'].isin(continues['customerID'])]
+
+internet_cancelled= internet[internet['customerID'].isin(cancelled['customerID'])]
+
+internet_continues= internet[internet['customerID'].isin(continues['customerID'])]
+
+data = [len(cancelled_both), len(internet_cancelled), len(phone_cancelled), len(continues_both), len(internet_continues), len(phone_continues)]
+
+df = pd.DataFrame({'Categoria': ['Cancelaron ambos', 'Cancelaron internet', 'Cancelaron teléfono', 'Continuan con ambos', 'Continuan con internet', 'Continuan con telefonos'],
+                   'Frecuencia': data})
+df= df.set_index('Categoria', drop=True)
+df
+
+df.plot(kind='bar')
+
+# Vemos que los que cancelaron tenían contratados ambos, tanto internet como telefono, los que continuan no todos tienen ambos 
+
+
+Plan aproximado para resolver la tarea:
+
+1.- Preprocesamiento de datos
+2.- EDA
+3.- Creación de varios modelos
+4.- Comprobar cual es el mejor
+5.- Probar el modelo 
